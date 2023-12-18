@@ -66,11 +66,11 @@ class Section(QFrame):
                             '', str(self.label.text()))
         if self.checkbox.isChecked():
             self.label.setText(label_text + ' Active')
-            self.removeBlurEffect()
+            # self.removeBlurEffect()
             self.setStyleSheet("background-color: #d0ffd0;")
         else:
             self.label.setText(label_text + ' Inactive')
-            self.addBlurEffect()
+            # self.addBlurEffect()
             self.setStyleSheet("background-color: #ffd0d0;")
 
     def toggle_widgets_enabled(self):
@@ -78,16 +78,23 @@ class Section(QFrame):
         enable_widgets = self.checkbox.isChecked()
         self.edit1.setEnabled(enable_widgets)
         self.edit2.setEnabled(enable_widgets)
+        if enable_widgets:
+            # Pokud jsou povolené, odebrat efekty rozmazání
+            self.removeBlurEffect(self.edit1)
+            self.removeBlurEffect(self.edit2)
+        else:
+            self.addBlurEffect(self.edit1)
+            self.addBlurEffect(self.edit2)
 
-    def addBlurEffect(self):
-        # Přidání efektu rozmazání
+    def addBlurEffect(self, widget):
+        # Přidání efektu rozmazání pouze na konkrétní widget
         blur = QGraphicsBlurEffect()
         blur.setBlurRadius(1.5)  # Nastavte poloměr rozmazání podle potřeby
-        self.setGraphicsEffect(blur)
+        widget.setGraphicsEffect(blur)
 
-    def removeBlurEffect(self):
-        # Odebrání efektu rozmazání
-        self.setGraphicsEffect(None)
+    def removeBlurEffect(self, widget):
+        # Odebrání efektu rozmazání z konkrétního widgetu
+        widget.setGraphicsEffect(None)
 
 
 class MainWindow(QWidget):
@@ -100,26 +107,46 @@ class MainWindow(QWidget):
         self.sections = []
 
         self.mainLayout = QVBoxLayout(self)
+        self.sectionLayout = QVBoxLayout(self)
+        self.menuLayout = QVBoxLayout(self)
+        
         self.lowerMenuLayout = QHBoxLayout(self)
+        self.lowerUpperMenuLayout = QHBoxLayout(self)
 
         self.add_section()  # 1st sekce
         self.add_section()  # 2nd sekce
-
+        
+        self.rem_button = QPushButton('Remove Last Section')
+        self.rem_button.clicked.connect(self.remove_section)
+        self.lowerUpperMenuLayout.addWidget(self.rem_button)
+        
         self.sec_button = QPushButton('Add Section')
         self.sec_button.clicked.connect(self.add_section)
         self.lowerMenuLayout.addWidget(self.sec_button)
+        
 
         self.exp_button = QPushButton('Export')
         self.exp_button.clicked.connect(self.export_exe)
         self.lowerMenuLayout.addWidget(self.exp_button)
-        self.mainLayout.addLayout(self.lowerMenuLayout)
+        
+        self.menuLayout.addLayout(self.lowerMenuLayout)
+        self.menuLayout.addLayout(self.lowerUpperMenuLayout)
+        
+        self.mainLayout.addLayout(self.sectionLayout)
+        self.mainLayout.addLayout(self.menuLayout)
         self.setLayout(self.mainLayout)
 
     def add_section(self):
         section = Section(len(self.sections) + 1)
         section.setMaximumHeight(80)
-        self.mainLayout.insertWidget(self.mainLayout.count() - 1, section)
+        self.sectionLayout.addWidget(section)
         self.sections.append(section)
+        
+    def remove_section(self):
+        if self.sections:
+            section = self.sections.pop()
+            section.setParent(None)
+            section.deleteLater()
 
     def export_exe(self):
         pass
