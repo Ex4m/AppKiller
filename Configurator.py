@@ -4,6 +4,8 @@ from PyQt5.QtGui import *
 import re
 import pickle
 import os
+import shutil
+
 
 def app_killer(exe_to_kill, path_contains):
     terminated_count = 0
@@ -30,7 +32,7 @@ class Section(QFrame):
     def __init__(self, numbering):
         super().__init__()
         self.numbering = numbering
-        
+
         self.setFrameShape(QFrame.Box)
         self.setFrameShadow(QFrame.Raised)
         self.setLineWidth(2)  # Nastaví šířku rámečku
@@ -42,7 +44,7 @@ class Section(QFrame):
 
         # Vytvoření grid layoutu pro jednu sekci
         self.layout = QGridLayout(self)
-            
+
         self.label = QLabel(str(numbering) + '. Inactive')
         self.checkbox = QCheckBox()
 
@@ -99,8 +101,6 @@ class Section(QFrame):
     def removeBlurEffect(self, widget):
         # Odebrání efektu rozmazání z konkrétního widgetu
         widget.setGraphicsEffect(None)
-        
-    
 
 
 class MainWindow(QWidget):
@@ -113,35 +113,34 @@ class MainWindow(QWidget):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         icon = QIcon(script_dir + '/PerlKillerIco.ico')
         self.setWindowIcon(icon)
-        
+
         self.sections = []
 
         self.mainLayout = QVBoxLayout(self)
         self.sectionLayout = QVBoxLayout(self)
         self.menuLayout = QVBoxLayout(self)
-        
+
         self.lowerMenuLayout = QHBoxLayout(self)
         self.lowerUpperMenuLayout = QHBoxLayout(self)
 
         self.add_section()  # 1st sekce
         self.add_section()  # 2nd sekce
-        
+
         self.rem_button = QPushButton('Remove Last Section')
         self.rem_button.clicked.connect(self.remove_section)
         self.lowerUpperMenuLayout.addWidget(self.rem_button)
-        
+
         self.sec_button = QPushButton('Add Section')
         self.sec_button.clicked.connect(self.add_section)
         self.lowerMenuLayout.addWidget(self.sec_button)
-        
 
-        self.exp_button = QPushButton('Export')
+        self.exp_button = QPushButton('Export as')
         self.exp_button.clicked.connect(self.export)
         self.lowerMenuLayout.addWidget(self.exp_button)
-        
+
         self.menuLayout.addLayout(self.lowerUpperMenuLayout)
         self.menuLayout.addLayout(self.lowerMenuLayout)
-        
+
         self.mainLayout.addLayout(self.sectionLayout)
         self.mainLayout.addLayout(self.menuLayout)
         self.setLayout(self.mainLayout)
@@ -151,48 +150,80 @@ class MainWindow(QWidget):
         section.setMaximumHeight(80)
         self.sectionLayout.addWidget(section)
         self.sections.append(section)
-        
+
     def remove_section(self):
         if self.sections:
             section = self.sections.pop()
             section.setParent(None)
             section.deleteLater()
-            
+
     def checkCompletness(self):
         for section in self.sections:
             if section.checkbox.isChecked():
                 if section.edit1.text() == '':
-                    MessageHandler.show_error(f'{section.numbering}. section\n cannot be active and not filled.')
+                    MessageHandler.show_error(
+                        f'{section.numbering}. section\n cannot be active and not filled.')
                     return False
                 if not re.search(r'\.exe$', section.edit1.text()):
-                    MessageHandler.show_warning(f'{section.numbering}. section\n App to kill need to contain .exe as well.')
-                
+                    MessageHandler.show_warning(
+                        f'{section.numbering}. section\n App to kill need to contain .exe as well.')
+
         return True
 
-                    
+    def find_exe_file(self, directory):
+        for root, dirs, files in os.walk(directory):
+            if 'AppKiller.exe' in files:
+                return os.path.join(root, 'AppKiller.exe')
+        return None
+
     def export(self):
         if not self.checkCompletness():
-            return 
+            return
         config_data = []
-        
+        question = MessageHandler.show_question(
+            "Do you want to save the file as ... ?", None)
+        if question:
+            new_name = MessageHandler.show_question_with_input(
+                "Enter file name:", None, "AppKiller")
+
         for section in self.sections:
             if section.checkbox.isChecked():
                 config_data.append({
-                    'section_number': section.edit1.text(),
+                    'section_number': section.numbering,
+                    'exe_to_kill': section.edit1.text(),
                     'app_path': section.edit2.text()
                 })
         try:
+            defName = ''
             script_dir = os.path.dirname(os.path.realpath(__file__))
-            file_path = os.path.join(script_dir, 'AKconfig.pkl') 
+            if question:
+                defName = new_name
+                file_path = os.path.join(script_dir, f"{defName}.pkl")
+            else:
+                defName = 'AKconfig'
+                file_path = os.path.join(script_dir, f"{defName}.pkl")
 
             with open(file_path, 'wb') as file:
                 pickle.dump(config_data, file)
 
-            MessageHandler.show_information('Configuration exported successfully.')            
+            MessageHandler.show_information(
+                f'Configuration exported successfully to this destination:\n{file_path}\n ')
+
+            # Find and copy AppKiller.exe
+            exe_source = self.find_exe_file(script_dir)
+            if exe_source:
+                exe_destination = os.path.join(script_dir, f"{defName}.exe")
+                shutil.copy(exe_source, exe_destination)
+                MessageHandler.show_information(
+                    f'AppKiller.exe found and copied to:\n{exe_destination}')
+            else:
+                MessageHandler.show_warning('AppKiller.exe not found.')
+
         except Exception as error:
-            MessageHandler.show_error(f"There was some kind of export error - {error}")
-            
-            
+            MessageHandler.show_error(
+                f"There was some kind of export error - {error}")
+
+
 class MessageHandler:
     @staticmethod
     def show_warning(message, parent=None):
@@ -209,24 +240,43 @@ class MessageHandler:
         msg_box.setWindowTitle("Error")
         msg_box.setText(message)
         msg_box.exec_()
-    
-    @staticmethod 
-    def show_information(message, parent=None ):
+
+    @staticmethod
+    def show_information(message, parent=None):
         msg_box = QMessageBox(parent)
         msg_box.setIcon(QMessageBox.Information)
         msg_box.setWindowTitle("Information")
         msg_box.setText(message)
         msg_box.exec_()
-    
-    @staticmethod 
-    def show_question(message, parent=None ):
+
+    @staticmethod
+    def show_question(message, parent=None, ):
         msg_box = QMessageBox(parent)
         msg_box.setIcon(QMessageBox.Question)
         msg_box.setWindowTitle("Question")
         msg_box.setText(message)
+
+        yes_button = msg_box.addButton(QMessageBox.Yes)
+        no_button = msg_box.addButton(QMessageBox.No)
+
         msg_box.exec_()
-        
-    
+
+        if msg_box.clickedButton() == yes_button:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def show_question_with_input(message, parent=None, default_name=''):
+        input_text, ok_pressed = QInputDialog.getText(
+            parent, "Question", f"{message}\n", QLineEdit.Normal, default_name)
+
+        if ok_pressed and input_text:
+            return input_text
+        else:
+            return None
+
+
 def main():
     app = QApplication([])
     window = MainWindow()
