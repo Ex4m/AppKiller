@@ -2,30 +2,39 @@ import psutil
 import re
 import pickle
 import os
+import sys
 
 
-import os
-import pickle
+def get_executable_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.realpath(__file__))
 
 
 def find_config_file(script_dir, def_name):
     config_file = os.path.join(script_dir, f"{def_name}.pkl")
+    name = def_name
     if not os.path.isfile(config_file):
-        config_file = os.path.join(script_dir, 'AKconfig.pkl')
-    return config_file
+        name = 'AKconfig.pkl'
+        config_file = os.path.join(script_dir, name)
+    return config_file, name
 
 
 def import_config():
     try:
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        exe_file = os.path.join(script_dir, 'AppKiller.exe')
+        script_dir = get_executable_path()
+        def_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        exe_file = os.path.join(script_dir, f"{def_name}.exe") if hasattr(
+            sys, 'frozen') else __file__
 
         if not os.path.isfile(exe_file):
             print('AppKiller.exe not found.')
             return
 
-        def_name = os.path.splitext(os.path.basename(exe_file))[0]
-        config_file = find_config_file(script_dir, def_name)
+        config_file, name = find_config_file(script_dir, def_name)
+        print(
+            f"Loaded data from file {name} and on path: {script_dir}")
 
         with open(config_file, 'rb') as file:
             config_data = pickle.load(file)
@@ -35,32 +44,38 @@ def import_config():
             exe_to_kill = section_data.get('exe_to_kill', '')
             app_path = section_data.get('app_path', '')
 
-            # Provádějte akce podle načtených dat, např.:
-            print(
-                f"Section '{section_number}'\n Exe to kill: '{exe_to_kill}'\n App path: '{app_path}'\n\n")
-
-        print(f'Configuration imported successfully from: {config_file}')
+        return config_data
 
     except Exception as error:
         print(f"There was some kind of import error - {error}")
+        return None
 
 
-# Použití funkce pro import
+# Přesunutí definice def_name před volání funkce import_config
+def_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 config_data = import_config()
 
 
 def app_killer_from_config(config_data):
+    if config_data is None:
+        return
+
     terminated_count = 0
 
     for section_data in config_data:
-        exe_to_kill = section_data.get('exe_to_kill', '')
-        path_contains = section_data.get('app_path', '')
+        numbering = section_data['section_number']
+        exe_to_kill = section_data['exe_to_kill']
+        path_contains = section_data['app_path']
 
-        for proc in psutil.process_iter(['pid', 'name', 'exe']):
+        print(section_data)
+
+        for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
             try:
-                if exe_to_kill in proc.info['name'] and path_contains in proc.info['exe']:
-                    print(
-                        f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
+                # Kontrola, zda je klíčové slovo obsaženo v názvu procesu, v cestě k exe souboru nebo v argumentech
+                if exe_to_kill in proc.info['name'].lower():
+                    if path_contains in proc.info['exe'].lower() or any(path_contains in arg.lower() for arg in proc.info['cmdline']):
+                        print(
+                            f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
                     psutil.Process(proc.info['pid']).terminate()
                     terminated_count += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

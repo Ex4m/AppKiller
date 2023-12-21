@@ -7,27 +7,6 @@ import os
 import shutil
 
 
-def app_killer(exe_to_kill, path_contains):
-    terminated_count = 0
-
-    for proc in psutil.process_iter(['pid', 'name', 'exe']):
-        try:
-            if exe_to_kill in proc.info['name'] and path_contains in proc.info['exe']:
-                print(
-                    f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
-                psutil.Process(proc.info['pid']).terminate()
-                terminated_count += 1
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Skip any errors when retrieving process information
-            pass
-
-    print(f"Terminated {terminated_count} processes.")
-
-
-# Terminate the NiceTaskbar.exe process if its path contains "test"
-app_killer("NiceTaskbar.exe", "9am")
-
-
 class Section(QFrame):
     def __init__(self, numbering):
         super().__init__()
@@ -40,7 +19,7 @@ class Section(QFrame):
         self.edit1 = QLineEdit()
         self.edit1.setPlaceholderText('i.e. Perl.exe')
         self.edit2 = QLineEdit()
-        self.edit2.setPlaceholderText('i.e. serverApp')
+        self.edit2.setPlaceholderText('i.e. serverApp (optional)')
 
         # Vytvoření grid layoutu pro jednu sekci
         self.layout = QGridLayout(self)
@@ -104,10 +83,17 @@ class Section(QFrame):
 
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self, width=300, height=300):
         super().__init__()
+        self.width = width
+        self.height = height
 
-        self.setGeometry(800, 400, 300, 300)
+        centerPoint = QDesktopWidget().availableGeometry().center()
+        center_x = int(centerPoint.x() - self.width / 2)
+        center_y = int(centerPoint.y() - self.height / 2)
+
+        self.setGeometry(center_x,
+                         center_y, self.width, self.height)
         self.setWindowTitle("App Killer")
 
         script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -117,11 +103,16 @@ class MainWindow(QWidget):
         self.sections = []
 
         self.mainLayout = QVBoxLayout(self)
-        self.sectionLayout = QVBoxLayout(self)
-        self.menuLayout = QVBoxLayout(self)
 
-        self.lowerMenuLayout = QHBoxLayout(self)
-        self.lowerUpperMenuLayout = QHBoxLayout(self)
+        self.sectionLayout = QVBoxLayout()
+        self.menuLayout = QVBoxLayout()
+        self.lowerMenuLayout = QHBoxLayout()
+        self.lowerUpperMenuLayout = QHBoxLayout()
+
+        self.mainLayout.addLayout(self.sectionLayout)
+        self.mainLayout.addLayout(self.menuLayout)
+        self.menuLayout.addLayout(self.lowerUpperMenuLayout)
+        self.menuLayout.addLayout(self.lowerMenuLayout)
 
         self.add_section()  # 1st sekce
         self.add_section()  # 2nd sekce
@@ -138,11 +129,6 @@ class MainWindow(QWidget):
         self.exp_button.clicked.connect(self.export)
         self.lowerMenuLayout.addWidget(self.exp_button)
 
-        self.menuLayout.addLayout(self.lowerUpperMenuLayout)
-        self.menuLayout.addLayout(self.lowerMenuLayout)
-
-        self.mainLayout.addLayout(self.sectionLayout)
-        self.mainLayout.addLayout(self.menuLayout)
         self.setLayout(self.mainLayout)
 
     def add_section(self):
@@ -167,6 +153,7 @@ class MainWindow(QWidget):
                 if not re.search(r'\.exe$', section.edit1.text()):
                     MessageHandler.show_warning(
                         f'{section.numbering}. section\n App to kill need to contain .exe as well.')
+                    return False
 
         return True
 
@@ -190,9 +177,11 @@ class MainWindow(QWidget):
             if section.checkbox.isChecked():
                 config_data.append({
                     'section_number': section.numbering,
-                    'exe_to_kill': section.edit1.text(),
-                    'app_path': section.edit2.text()
+                    'exe_to_kill': section.edit1.text().lower(),
+                    'app_path': section.edit2.text().lower()
+
                 })
+                print(config_data)
         try:
             defName = ''
             script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -286,3 +275,26 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# def app_killer(exe_to_kill, path_contains):
+#     terminated_count = 0
+
+#     for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
+#         try:
+#             # Kontrola, zda je klíčové slovo obsaženo v názvu procesu, v cestě k exe souboru nebo v argumentech
+#             if exe_to_kill in proc.info['name'].lower():
+#                 if path_contains in proc.info['exe'].lower() or any(path_contains in arg.lower() for arg in proc.info['cmdline']):
+#                     print(
+#                         f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
+#                 psutil.Process(proc.info['pid']).terminate()
+#                 terminated_count += 1
+#         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+#             # Skip any errors when retrieving process information
+#             pass
+
+#     print(f"Terminated {terminated_count} processes.")
+
+
+# # Terminate the NiceTaskbar.exe process if its path contains "test"
+# app_killer("perl.exe", "server")
