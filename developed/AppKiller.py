@@ -21,6 +21,24 @@ def find_config_file(script_dir, def_name):
     return config_file, name
 
 
+def locate_depe_directory(directory_name, current_directory):
+    target_directory = os.path.join(current_directory, directory_name)
+
+    if os.path.exists(target_directory) and os.path.isdir(target_directory):
+        return target_directory
+    else:
+        parent_directory = os.path.dirname(current_directory)
+        target_directory_parent = os.path.join(
+            parent_directory, directory_name)
+
+        if os.path.exists(target_directory_parent) and os.path.isdir(target_directory_parent):
+            return target_directory_parent
+        else:
+            print(
+                f"{directory_name} folder was not found in current or parent directory.")
+            return None
+
+
 def import_config():
     try:
         script_dir = get_executable_path()
@@ -32,9 +50,10 @@ def import_config():
             print('AppKiller.exe not found.')
             return
 
-        config_file, name = find_config_file(script_dir, def_name)
+        config_dir = locate_depe_directory("dependencies", script_dir)
+        config_file, name = find_config_file(config_dir, def_name)
         print(
-            f"Loaded data from file {name} and on path: {script_dir}")
+            f"Loaded data from file {name} and on path: {config_dir}")
 
         with open(config_file, 'rb') as file:
             config_data = pickle.load(file)
@@ -76,8 +95,8 @@ def app_killer_from_config(config_data):
                     if path_contains in proc.info['exe'].lower() or any(path_contains in arg.lower() for arg in proc.info['cmdline']):
                         print(
                             f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
-                    psutil.Process(proc.info['pid']).terminate()
-                    terminated_count += 1
+                        psutil.Process(proc.info['pid']).terminate()
+                        terminated_count += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 # Skip any errors when retrieving process information
                 pass
