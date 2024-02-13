@@ -92,7 +92,7 @@ def app_killer_from_config(config_data):
             try:
                 # Kontrola, zda je klíčové slovo obsaženo v názvu procesu, v cestě k exe souboru nebo v argumentech
                 if exe_to_kill in proc.info['name'].lower():
-                    if path_contains in proc.info['exe'].lower() or any(path_contains in arg.lower() for arg in proc.info['cmdline']):
+                    if path_contains in f"{proc.info['exe'].lower()} {' '.join(arg.lower() for arg in proc.info['cmdline'])}":
                         print(
                             f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
                         psutil.Process(proc.info['pid']).terminate()
