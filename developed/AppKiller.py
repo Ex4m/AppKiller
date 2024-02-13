@@ -42,7 +42,7 @@ def locate_depe_directory(directory_name, current_directory):
 def import_config():
     try:
         script_dir = get_executable_path()
-        def_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        def_name = os.path.splitext(os.path.basename(sys.executable))[0]
         exe_file = os.path.join(script_dir, f"{def_name}.exe") if hasattr(
             sys, 'frozen') else __file__
 
@@ -86,17 +86,20 @@ def app_killer_from_config(config_data):
         exe_to_kill = section_data['exe_to_kill']
         path_contains = section_data['app_path']
 
+        path_cont_part = path_contains.split(";;")
         print(section_data)
 
         for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
             try:
                 # Kontrola, zda je klíčové slovo obsaženo v názvu procesu, v cestě k exe souboru nebo v argumentech
                 if exe_to_kill in proc.info['name'].lower():
-                    if path_contains in f"{proc.info['exe'].lower()} {' '.join(arg.lower() for arg in proc.info['cmdline'])}":
-                        print(
-                            f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
-                        psutil.Process(proc.info['pid']).terminate()
-                        terminated_count += 1
+                    cmdline_str = f"{proc.info['exe'].lower()} {' '.join(arg.lower() for arg in proc.info['cmdline'])}"
+                    for path_partially in path_cont_part:
+                        if path_partially in cmdline_str:
+                            print(
+                                f"Terminating process {proc.info['name']} (PID: {proc.info['pid']})")
+                            psutil.Process(proc.info['pid']).terminate()
+                            terminated_count += 1
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 # Skip any errors when retrieving process information
                 pass
