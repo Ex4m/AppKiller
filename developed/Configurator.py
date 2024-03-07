@@ -51,7 +51,7 @@ class Section(QFrame):
 
         # Přidání reakce na kliknutí na checkbox (až po inicializaci)
         self.checkbox.clicked.connect(self.toggle_checkbox)
-        self.invert_chkbox.clicked.connect(self.toggle_inv_chkbox)
+        self.invert_chkbox.clicked.connect(self.toggle_checkbox)
 
         # Volání toggle_checkbox pro inicializaci textu a efektů
         self.toggle_checkbox()
@@ -77,13 +77,6 @@ class Section(QFrame):
             # self.addBlurEffect()
             self.setStyleSheet(f"background-color: {self.boxColor};")  # red
 
-    def toggle_inv_chkbox(self):
-        if self.invert_chkbox.isChecked() and self.checkbox.isChecked():
-            self.setStyleSheet("background-color: #F8C754;")  # yellow
-        if not self.invert_chkbox.isChecked():
-            self.setStyleSheet(f"background-color: {self.boxColor}")
-
-    def toggle_widgets_enabled(self):
         # Metoda pro povolení/disablování vstupních polí podle stavu checkboxu
         enable_widgets = self.checkbox.isChecked()
         self.edit1.setEnabled(enable_widgets)
